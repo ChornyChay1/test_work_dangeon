@@ -1,0 +1,19 @@
+{
+  "rooms": [
+    { "id": 1, "name": "Room 1" },
+    { "id": 2, "name": "Room 2" },
+    { "id": 3, "name": "Room 3" },
+    { "id": 4, "name": "Room 4" },
+    { "id": 5, "name": "Room 5" },
+    { "id": 6, "name": "Room 6" }
+
+  ],
+  "connections": [
+    { "room1_id": 1, "room2_id": 2, "direction": "east" },
+    { "room1_id": 1, "room2_id": 3, "direction": "south" },
+    { "room1_id": 1, "room2_id": 4, "direction": "west" },
+    { "room1_id": 1, "room2_id": 5, "direction": "north" },
+    { "room1_id": 5, "room2_id": 6, "direction": "north" },
+    { "room1_id": 4, "room2_id": 3, "direction": "south" }
+  ]
+}
