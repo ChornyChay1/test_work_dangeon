@@ -25,6 +25,7 @@ class APIConstants {
     //Ошибка zip архива
     public static $ERROR_ENSO_ZIP_ARCHIVE = 1001;
     public static $ERROR_PLAYER_NOT_FOUND;
+    public static $ERROR_ROOM_NOT_FOUND;
 
 }
 ?>

@@ -1,11 +1,11 @@
 {
   "rooms": [
-    { "id": 1, "name": "Room 1" },
-    { "id": 2, "name": "Room 2" },
-    { "id": 3, "name": "Room 3" },
-    { "id": 4, "name": "Room 4" },
-    { "id": 5, "name": "Room 5" },
-    { "id": 6, "name": "Room 6" }
+    { "id": 1, "name": "Room 1","is_end": false },
+    { "id": 2, "name": "Room 2","is_end": false },
+    { "id": 3, "name": "Room 3","is_end": false },
+    { "id": 4, "name": "Room 4","is_end": false },
+    { "id": 5, "name": "Room 5","is_end": false },
+    { "id": 6, "name": "Room 6","is_end": true }
 
   ],
   "connections": [

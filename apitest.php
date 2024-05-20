@@ -44,7 +44,7 @@ class apitest extends apiBaseClass
         $playerData = $this->database->get_player($player_id);
         $retJSON = $this->createDefaultJson();
         if (!$playerData) {
-            $this->player = new Player($playerData->id, $playerData->name, $playerData->score, $this->dangeon->getRoom($playerData->current_room));
+            $this->player = new Player(1,22, 0, 1);
             $this->player->save_to_db($this->database);
         } else {
             // Если игрок не найден, возвращаем ошибку
@@ -59,7 +59,6 @@ class apitest extends apiBaseClass
      */
     function move($apiMethodParams)
     {
-        global $dungeon, $player, $database;
 
         $player_id = $apiMethodParams->player_id;
         $direction = $apiMethodParams->direction;
@@ -67,61 +66,99 @@ class apitest extends apiBaseClass
         $this->database = SQLiteWorker::getInstance('mydatabase.db');
         $this->dangeon = get_from_db($this->database, $dangeon_id);
 
-        // Получаем текущего игрока из базы данных
-        $playerData = $this->database->get_player($player_id);
-        if ($playerData) {
-            if ($playerData) {
-                $this->player = new Player($playerData->id, $playerData->name, $playerData->score, $dungeon->getRoom($playerData->current_room));
-            } else {
-                // Если игрок не найден, возвращаем ошибку
-                $retJSON = $this->createDefaultJson();
-                $retJSON->errorno = APIConstants::$ERROR_PLAYER_NOT_FOUND;
-                return $retJSON;
-            }
 
-            $current_room_id = $this->player->current_room->id;
-            $current_room = $this->dangeon->getRoom($current_room_id);
-            $dungeon->changeVisitedRoom($current_room->id);
-            $next_room = $current_room->getNeighbor($direction);
-            if ($next_room) {
-                $player->current_room = $next_room->id;
-                $player->save_to_db($database);
-                $eventMessage = '';
-                if (isset($next_room->visited) && $next_room->visited === true) {
-                    $event = EventFactory::createEvent('empty', $dungeon, $player);
-                    $event->trigger();
-                    $eventMessage = $event->trigger();
-                } else {
-
-                    // Тригерим случайное событие в новой комнате
-                    $events = ['monster', 'treasure', 'empty'];
-                    $eventType = $events[rand(0, 2)];
-                    $event = EventFactory::createEvent($eventType, $dungeon, $player);
-                    $event->trigger();
-                    $eventMessage = $event->trigger();
-                }
-
-                $retJSON = $this->createDefaultJson();
-                $retJSON->success = true;
-                $retJSON->room = [
-                    "id" => $next_room->id,
-                    "name" => $next_room->name,
-                    "visited" => $next_room->visited,
-                    "available_directions" => array_keys($next_room->neighbors)
-                ];
-
-                $retJSON->event_message = $eventMessage;
-
-
-                return $retJSON;
-            } else {
-                $retJSON = $this->createDefaultJson();
-                $retJSON->success = false;
-                $retJSON->available_directions = array_keys($current_room->neighbors);
-                return $retJSON;
-            }
+        if ($this->dangeon === null) {
+            $retJSON = $this->createDefaultJson();
+            $retJSON->errorno = APIConstants::$ERROR_DUNGEON_NOT_FOUND;
+            return $retJSON;
         }
+
+        // Получаем текущего игрока из базы данных
+        $this->player = $this->database->get_player($player_id);
+        if ($this->player === null) {
+            $retJSON = $this->createDefaultJson();
+            $retJSON->errorno = APIConstants::$ERROR_PLAYER_NOT_FOUND;
+            return $retJSON;
+        }
+
+
+
+        if ($this->player->current_room === null) {
+            $retJSON = $this->createDefaultJson();
+            $retJSON->errorno = APIConstants::$ERROR_ROOM_NOT_FOUND;
+            return $retJSON;
+        }
+
+        $current_room_id = $this->player->current_room;
+        $current_room = $this->dangeon->getRoom($current_room_id);
+
+        $this->player = new Player($this->player->id, $this->player->name, $this->player->score, $current_room_id);
+        $this->player->save_to_db($this->database);
+
+        if ($current_room === null) {
+            $retJSON = $this->createDefaultJson();
+            $retJSON->errorno = APIConstants::$ERROR_ROOM_NOT_FOUND;
+            return $retJSON;
+        }
+
+        $this->dangeon->changeVisitedRoom($current_room->id);
+        $next_room = $current_room->getNeighbor($direction);
+
+        if ($next_room === null) {
+            $retJSON = $this->createDefaultJson();
+            $retJSON->success = false;
+            $retJSON->available_directions = array_keys($current_room->neighbors);
+            return $retJSON;
+        }
+
+        $this->player->current_room = $next_room->id;
+        $this->player->save_to_db($this->database);
+        if($this->dangeon->is_locked==1){
+            $retJSON = $this->createDefaultJson();
+            $retJSON->locked = true;
+            $retJSON->score = $this->player->score;
+            $retJSON->min_path = $this->dangeon->findShortestPath(1);
+            return $retJSON;
+        }
+        $eventMessage = '';
+        if (isset($next_room->visited) && $next_room->visited == 1) {
+            $event = EventFactory::createEvent('empty', $this->dangeon, $this->player);
+            $event->trigger();
+            $eventMessage = $event->trigger();
+        } else {
+            // Trigger a random event in the new room
+            $events = ['monster', 'treasure', 'empty'];
+            $eventType = $events[rand(0, 2)];
+            $event = EventFactory::createEvent($eventType, $this->dangeon, $this->player);
+            $event->trigger();
+            $eventMessage = $event->trigger();
+        }
+
+        $retJSON = $this->createDefaultJson();
+        $retJSON->success = true;
+        $retJSON->room = [
+            "id" => $next_room->id,
+            "name" => $next_room->name,
+            "visited" => $next_room->visited,
+            "available_directions" => array_keys($next_room->neighbors),
+            "is_end" => $next_room->is_end
+        ];
+        if($next_room->is_end){
+            $this->dangeon->is_locked = 1;
+            $this->dangeon->save_to_db($this->database);
+            $retJSON = $this->createDefaultJson();
+            $retJSON->locked = true;
+            $retJSON->score = $this->player->score;
+            $retJSON->min_path = $this->dangeon->findShortestPath(1);
+            return $retJSON;
+        }
+        $retJSON->event_message = $eventMessage;
+        $next_room->visited = true;
+        $next_room->save_to_db($this->database);
+
+        return $retJSON;
     }
+
 
 
         //http://www.example.com/api/?apitest.helloAPIResponseBinary={"responseBinary":1}

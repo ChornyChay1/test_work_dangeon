@@ -6,18 +6,22 @@ abstract class Event {
     public $room;
     public $type;
     public $message;
+    public $player;
 
-    function __construct($room) {
+
+    function __construct($room,$player) {
         $this->room = $room;
+        $this->player=$player;
     }
 
     abstract public function trigger();
 }
 
 class EmptyEvent extends Event {
-    public function __construct($room) {
-        parent::__construct($room);
+    public function __construct($room,$player) {
+        parent::__construct($room,$player);
         $this->type = 'empty';
+        $this->player = $player;
         $this->message = 'Ничего не случилось';
     }
 
@@ -29,10 +33,12 @@ class EmptyEvent extends Event {
 class MonsterEvent extends Event {
     private $monster;
 
-    public function __construct($room) {
-        parent::__construct($room);
+
+    public function __construct($room,$player) {
+        parent::__construct($room,$player);
         $this->type = 'monster';
         $this->monster = $this->generateMonster();
+        $this->player = $player;
     }
 
     private function generateMonster() {
@@ -56,10 +62,13 @@ class MonsterEvent extends Event {
             }
         }
 
+
+
+        $database = SQLiteWorker::getInstance('mydatabase.db');
         $earnedPoints = $this->monster->strength;
-        $player->score += $earnedPoints;
-        $player->save_to_db($database);
-        $b = "Вы победили {$this->monster->name}  за {$hits} ударов, и заработали {$earnedPoints}, ваш счёт {$player->score}!\n";
+        $this->player->score += $earnedPoints;
+        $this->player->save_to_db($database);
+        $b = "Вы победили {$this->monster->name}  за {$hits} ударов, и заработали {$earnedPoints}, ваш счёт {$this->player->score}!\n";
 
         return $a.$b;
     }
@@ -68,10 +77,11 @@ class MonsterEvent extends Event {
 class TreasureEvent extends Event {
     private $chest;
 
-    public function __construct($room) {
-        parent::__construct($room);
+    public function __construct($room,$player) {
+        parent::__construct($room,$player);
         $this->type = 'treasure';
         $this->chest = $this->generateChest();
+        $this->player = $player;
     }
 
     private function generateChest() {
@@ -82,25 +92,31 @@ class TreasureEvent extends Event {
 
     public function trigger() {
         global $player, $database;
+        // Получаем текущего игрока из базы данных
+
+        $database = SQLiteWorker::getInstance('mydatabase.db');
+
+
+
         $a =  "Вы нашли {$this->chest->rarity} сундук в комнате {$this->room->name}!\n";
 
         $earnedPoints = $this->chest->open();
-        $player->score += $earnedPoints;
-        $player->save_to_db($database);
-        $b = "Вы открыли {$this->chest->rarity} сундук и получили {$earnedPoints} очков!\n";
+        $this->player->score += $earnedPoints;
+        $this->player->save_to_db($database);
+        $b = "Вы открыли {$this->chest->rarity} сундук и получили {$earnedPoints} очков,ваш счёт - {$this->player->score}!\n";
         return $a . $b;
     }
 }
 
 class EventFactory {
-    public static function createEvent($type, $room) {
+    public static function createEvent($type, $room,$player) {
         switch ($type) {
             case 'monster':
-                return new MonsterEvent($room);
+                return new MonsterEvent($room,$player);
             case 'treasure':
-                return new TreasureEvent($room);
+                return new TreasureEvent($room,$player);
             default:
-                return new EmptyEvent($room);
+                return new EmptyEvent($room,$player);
         }
     }
 }
